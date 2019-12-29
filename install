@@ -25,7 +25,7 @@ DISABLE_VULNERABILITIES='
 
 bootstrap_portsnap() {
 	echo "Fetching portsnap"
-	portsnap fetch
+	portsnap fetch --interactive
 	portsnap extract
 }
 
