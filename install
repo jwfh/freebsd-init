@@ -3,22 +3,41 @@
 set -eox
 
 GH_ACCOUNT=jwfh
-GH_REPO=freebsd-init
+GH_INIT_REPO=freebsd-init
+GH_PORT_REPO=freebsd-ports
 
-PORTSDIR=/usr/ports
+PORTSDIR=$(awk -F'=' 'BEGIN { PORTSDIR="" } !/^#/ && /PORTSDIR=/ { PORTSDIR=$2 } END { if (PORTSDIR == "") { exit 1 } else { print PORTSDIR } }' /etc/portsnap.conf) || PORTSDIR=/usr/ports
 WRKDIR="$(mktemp -d)"
 
+RETRIES=3
+
+# Order matters here because unlike when building with poudriere,
+# the ports tree's Makefiles sometimes get dependencies a little
+# confused. Most issues stem from a port requiring Python 2.7 but 
+# one of its dependencies requiring ^3.6. The fix is to install the
+# dependency first.
 PORTS='	
 	devel/gmake 
+	devel/llvm80 
 	devel/p5-subversion 
 	devel/git 
 	security/sudo 
-	devel/llvm80 
 	devel/meson 
 	print/ghostscript9-agpl-base 
 	print/tex-dvipsk
 	editors/vim
+	x11/libinput
+    x11-toolkits/qt5-gui
 '
+
+CONFLICTS='
+	devel/gmake=ports-mgmt/pkg
+    x11-toolkits/qt5-gui=devel/evdev-proto
+'
+
+# Order does not matter here. Ports listed here should be a subset of
+# those listed in ${PORTS}. Ports listed here will have  
+# `DISABLE_VULNERABILITIES=yes' passed to make(1).
 DISABLE_VULNERABILITIES='
 	print/ghostscript9-agpl-base 
 '
@@ -32,7 +51,7 @@ bootstrap_portsnap() {
 fetch_repo() {
 	echo "Fetching files from VCS to ${WRKDIR}"
 	cd "${WRKDIR}" && \
-		fetch --no-verify-peer -o- https://api.github.com/repos/${GH_ACCOUNT}/${GH_REPO}/releases/latest \
+		fetch --no-verify-peer -o- https://api.github.com/repos/${GH_ACCOUNT}/${GH_INIT_REPO}/releases/latest \
 			| sed -E -e 's@^.*"tarball_url":"@@' -e 's@".*$@@' \
 			| xargs fetch --no-verify-peer -o- \
 			| tar xvf - --strip 1
@@ -45,17 +64,37 @@ install_port_options() {
 
 install_if_not_exists() {
 	echo "Building $1"
-	if echo ${DISABLE_VULNERABILITIES} | grep -q $1; then
-		make -C ${PORTSDIR}/$1 DISABLE_VULNERABILITIES=yes install
-	else
-		make -C ${PORTSDIR}/$1 install
-	fi
+    PORT=$1
+    for CONFLICT in ${CONFLICTS}
+    do
+        for CONFLICT_PORT in $(echo ${CONFLICT} | awk -vFS=",|\=" -vOFS=" " "/^[:space:]*$(echo ${PORT} | sed -e 's#/#\\/#g')/ { \$1=\"\"; print }")
+        do
+            if ! pkg info ${CONFLICT_PORT} >/dev/null 2>&1; then
+                make -C ${PORTSDIR}/${CONFLICT_PORT} deinstall || :
+            fi
+        done
+    done
+
+	for try in $(seq ${RETRIES})
+	do 
+		if ! pkg info $1 >/dev/null 2>&1; then
+			if echo ${DISABLE_VULNERABILITIES} | grep -q -E -e "[:space:]+${PORT}[:space:]+"; then
+				make -C ${PORTSDIR}/${PORT} DISABLE_VULNERABILITIES=yes install clean || :
+			else
+				make -C ${PORTSDIR}/${PORT} install clean || :
+			fi
+			(pkg info ${PORT} >/dev/null 2>&1 && break) || :
+		else 
+			echo "${PORT} is already installed"
+		fi
+	done
+	pkg info ${PORT} >/dev/null 2>&1 
 }
 
 install_ports() {
-	for port in ${PORTS}
+	for PORT in ${PORTS}
 	do
-		install_if_not_exists ${port}
+		install_if_not_exists ${PORT}
 	done
 }
 
