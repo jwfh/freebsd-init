@@ -7,16 +7,20 @@ GH_REPO=freebsd-init
 
 WRKDIR="$(mktemp -d)"
 
-PORTS=	\
-	gmake \
-	p5-subversion \
-	git \
-	sudo \
-	llvm80 \
-	meson \
-    "print/ghostscript9-agpl-base DISABLE_VULNERABILITIES=yes" \
-    "print/tex-dvipsk" \
-	vim
+PORTS='	
+	devel/gmake 
+	devel/p5-subversion 
+	devel/git 
+	security/sudo 
+	devel/llvm80 
+	devel/meson 
+	print/ghostscript9-agpl-base 
+	print/tex-dvipsk
+	editors/vim
+'
+DISABLE_VULNERABILITIES='
+	print/ghostscript9-agpl-base 
+'
 
 fetch_repo() {
 	echo "Fetching files from VCS to ${WRKDIR}"
@@ -33,6 +37,11 @@ install_port_options() {
 
 install_if_not_exists() {
 	echo "Building $1"
+	if echo ${DISABLE_VULNERABILITIES} | grep -q $1; then
+		echo make -C ${PORTSDIR}/$1 DISABLE_VULNERABILITIES=yes install
+	else
+		echo make -C ${PORTSDIR}/$1 install
+	fi
 }
 
 install_ports() {
