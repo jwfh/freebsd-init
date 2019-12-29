@@ -19,20 +19,22 @@ RETRIES=3
 PORTS='	
 	devel/gmake 
 	devel/llvm80 
+	devel/meson
 	devel/p5-subversion 
 	devel/git 
 	security/sudo 
-	devel/meson 
 	print/ghostscript9-agpl-base 
 	print/tex-dvipsk
 	editors/vim
 	x11/libinput
-    x11-toolkits/qt5-gui
+	x11-toolkits/qt5-gui
+	emulators/virtualbox-ose
+	www/chromium
 '
 
 CONFLICTS='
 	devel/gmake=ports-mgmt/pkg
-    x11-toolkits/qt5-gui=devel/evdev-proto
+	x11-toolkits/qt5-gui=devel/evdev-proto
 '
 
 # Order does not matter here. Ports listed here should be a subset of
@@ -40,6 +42,7 @@ CONFLICTS='
 # `DISABLE_VULNERABILITIES=yes' passed to make(1).
 DISABLE_VULNERABILITIES='
 	print/ghostscript9-agpl-base 
+	www/chromium
 '
 
 bootstrap_portsnap() {
@@ -64,16 +67,16 @@ install_port_options() {
 
 install_if_not_exists() {
 	echo "Building $1"
-    PORT=$1
-    for CONFLICT in ${CONFLICTS}
-    do
-        for CONFLICT_PORT in $(echo ${CONFLICT} | awk -vFS=",|\=" -vOFS=" " "/^[:space:]*$(echo ${PORT} | sed -e 's#/#\\/#g')/ { \$1=\"\"; print }")
-        do
-            if ! pkg info ${CONFLICT_PORT} >/dev/null 2>&1; then
-                make -C ${PORTSDIR}/${CONFLICT_PORT} deinstall || :
-            fi
-        done
-    done
+	PORT=$1
+	for CONFLICT in ${CONFLICTS}
+	do
+		for CONFLICT_PORT in $(echo ${CONFLICT} | awk -vFS=",|\=" -vOFS=" " "/^[:space:]*$(echo ${PORT} | sed -e 's#/#\\/#g')/ { \$1=\"\"; print }")
+		do
+			if ! pkg info ${CONFLICT_PORT} >/dev/null 2>&1; then
+				make -C ${PORTSDIR}/${CONFLICT_PORT} deinstall || :
+			fi
+		done
+	done
 
 	for try in $(seq ${RETRIES})
 	do 
