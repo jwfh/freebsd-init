@@ -40,6 +40,7 @@ fetch_repo() {
 
 install_port_options() {
 	echo "Installing port options"
+	cp -R ${WRKDIR}/var/db/ports /var/db/
 }
 
 install_if_not_exists() {
