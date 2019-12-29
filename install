@@ -5,6 +5,7 @@ set -eox
 GH_ACCOUNT=jwfh
 GH_REPO=freebsd-init
 
+PORTSDIR=/usr/ports
 WRKDIR="$(mktemp -d)"
 
 PORTS='	
@@ -22,6 +23,12 @@ DISABLE_VULNERABILITIES='
 	print/ghostscript9-agpl-base 
 '
 
+bootstrap_portsnap() {
+	echo "Fetching portsnap"
+	portsnap fetch
+	portsnap extract
+}
+
 fetch_repo() {
 	echo "Fetching files from VCS to ${WRKDIR}"
 	cd "${WRKDIR}" && \
@@ -38,9 +45,9 @@ install_port_options() {
 install_if_not_exists() {
 	echo "Building $1"
 	if echo ${DISABLE_VULNERABILITIES} | grep -q $1; then
-		echo make -C ${PORTSDIR}/$1 DISABLE_VULNERABILITIES=yes install
+		make -C ${PORTSDIR}/$1 DISABLE_VULNERABILITIES=yes install
 	else
-		echo make -C ${PORTSDIR}/$1 install
+		make -C ${PORTSDIR}/$1 install
 	fi
 }
 
@@ -52,6 +59,7 @@ install_ports() {
 }
 
 main() {
+	bootstrap_portsnap
 	fetch_repo
 	install_port_options
 	install_ports
