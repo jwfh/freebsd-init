@@ -1,0 +1,14 @@
+#!/bin/sh
+
+GH_ACCOUNT=jwfh
+GH_REPO=freebsd-init
+
+WRKDIR="$(mktemp -d)"
+
+fetch_repo() {
+    cd "${WRKDIR}" && \
+        fetch -o- https://api.github.com/repos/${GH_ACCOUNT}/${GH_REPO}/releases/latest \
+            | sed -E -e 's@^.*"tarball_url":"@@' -e 's@".*$@@' \
+            | xargs fetch -o- \
+            | tar xvf - --strip 1
+}
