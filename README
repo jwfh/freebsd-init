@@ -1,1 +1,1 @@
-# fetch -o- https://raw.githubusercontent.com/jwfh/freebsd-init/master/install | sh
+# fetch  --no-verify-peer -o- https://raw.githubusercontent.com/jwfh/freebsd-init/master/install | sh
