@@ -32,9 +32,9 @@ bootstrap_portsnap() {
 fetch_repo() {
 	echo "Fetching files from VCS to ${WRKDIR}"
 	cd "${WRKDIR}" && \
-		fetch -o- https://api.github.com/repos/${GH_ACCOUNT}/${GH_REPO}/releases/latest \
+		fetch --no-verify-peer -o- https://api.github.com/repos/${GH_ACCOUNT}/${GH_REPO}/releases/latest \
 			| sed -E -e 's@^.*"tarball_url":"@@' -e 's@".*$@@' \
-			| xargs fetch -o- \
+			| xargs fetch --no-verify-peer -o- \
 			| tar xvf - --strip 1
 }
 
