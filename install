@@ -13,3 +13,5 @@ fetch_repo() {
             | xargs fetch -o- \
             | tar xvf - --strip 1
 }
+
+fetch_repo
