@@ -1,9 +1,19 @@
 #!/bin/sh
 
+set -eox
+
 GH_ACCOUNT=jwfh
 GH_REPO=freebsd-init
 
 WRKDIR="$(mktemp -d)"
+
+PORTS=	\
+	gmake \
+	p5-subversion \
+	git \
+	sudo \
+	llvm80 \
+	vim
 
 fetch_repo() {
     echo "Fetching files from VCS to ${WRKDIR}"
@@ -14,4 +24,27 @@ fetch_repo() {
             | tar xvf - --strip 1
 }
 
-fetch_repo
+install_port_options() {
+	echo "Installing port options"
+}
+
+install_if_not_exists() {
+	echo "Building $1"
+}
+
+install_ports() {
+	for port in ${PORTS}
+	do
+		install_if_not_exists ${port}
+	done
+}
+
+main() {
+	fetch_repo
+	install_port_options
+	install_ports
+}
+
+main
+
+rm -rf "${WRKDIR}"
