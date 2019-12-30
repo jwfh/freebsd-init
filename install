@@ -11,6 +11,11 @@ WRKDIR="$(mktemp -d)"
 
 RETRIES=3
 
+if ! uname -s | grep -q 'FreeBSD'; then
+       echo "This script was written for FreeBSD"
+       exit 1
+fi
+
 # Order matters here because unlike when building with poudriere,
 # the ports tree's Makefiles sometimes get dependencies a little
 # confused. Most issues stem from a port requiring Python 2.7 but 
