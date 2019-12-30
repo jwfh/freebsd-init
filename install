@@ -1,5 +1,29 @@
 #!/bin/sh
 
+#  Copyright (c) 2019 Jacob House
+#  All rights reserved.
+#
+#  Redistribution and use in source and binary forms, with or without
+#  modification, are permitted provided that the following conditions
+#  are met:
+#  1. Redistributions of source code must retain the above copyright
+#	 notice, this list of conditions and the following disclaimer.
+#  2. Redistributions in binary form must reproduce the above copyright
+#	 notice, this list of conditions and the following disclaimer in the
+#	 documentation and/or other materials provided with the distribution.
+#
+#  THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+#  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+#  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+#  ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+#  FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+#  DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+#  OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+#  HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+#  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+#  OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+#  SUCH DAMAGE.
+
 set -eox
 
 GH_ACCOUNT=jwfh
@@ -12,9 +36,12 @@ WRKDIR="$(mktemp -d)"
 RETRIES=3
 
 if ! uname -s | grep -q 'FreeBSD'; then
-       echo "This script was written for FreeBSD"
-       exit 1
+	   echo "This script was written for FreeBSD"
+	   exit 1
 fi
+
+# This seems to be the least shitty GNOME mirror, yet it is not in bsd.sites.mk
+GLOBAL_MAKE_OPTIONS='MASTER_SITE_GNOME=http://mirror.csclub.uwaterloo.ca/gnome/%SUBDIR%/'
 
 # Order matters here because unlike when building with poudriere,
 # the ports tree's Makefiles sometimes get dependencies a little
@@ -36,21 +63,78 @@ PORTS='
 	emulators/virtualbox-ose
 	devel/dconf
 	www/chromium
+	sysutils/iocage
+	x11-wm/i3
+	x11/i3status
+	sysutils/conky
+	x11/polybar
+	sysutils/htop
+	x11/xscreensaver
+	java/intellij
+	audio/libmad
+	security/openssl
+	multimedia/ffmpeg
+	multimedia/mplayer
+	multimedia/vlc
+	sysutils/tmux
+	sysutils/screen
+	sysutils/fusefs-ntfs
+	sysutils/fusefs-sshfs
+	graphics/graphene
+	www/webkit2-gtk3
+	graphics/evince
+	x11-fm/nautilus
+	textproc/jq
+	lang/gawk
+	lang/nawk
+	textproc/gsed
+	shells/fish
+	editors/gedit
+	graphics/ImageMagick6
+	sysutils/neofetch
+	net/wol
+	textproc/bat
 '
 
+# Format: port=conflict[,conflict,...]
+# Spaces are not supported
 CONFLICTS='
 	devel/gmake=ports-mgmt/pkg
 	x11-toolkits/qt5-gui=devel/evdev-proto
+	sysutils/conky=textproc/docbook-utils
 '
 
 # Order does not matter here. Ports listed here should be a subset of
 # those listed in ${PORTS}. Ports listed here will have  
 # `DISABLE_VULNERABILITIES=yes' passed to make(1).
+#
+# TODO: Convert this to OPTIONS below
 DISABLE_VULNERABILITIES='
 	print/ghostscript9-agpl-base 
 	www/chromium
+	security/openssl
+	audio/libmad
 '
 
+# Format: port=option[,option,...]
+# Spaces are not supported
+MAKE_OPTIONS='
+	print/ghostscript9-agpl-base=DISABLE_VULNERABILITIES=yes
+	www/chromium=DISABLE_VULNERABILITIES=yes
+	security/openssl=DISABLE_VULNERABILITIES=yes
+	audio/libmad=DISABLE_VULNERABILITIES=yes
+	www/webkit2-gtk3=DISABLE_VULNERABILITIES=yes
+	graphics/ImageMagick6=DISABLE_VULNERABILITIES=yes
+'
+
+# Format: port=command arg
+# Spaces are supported
+POST_INSTALL_CMD='
+	security/sudo=echo "%wheel ALL=(ALL) NOPASSWD: ALL" | EDITOR="tee -a" visudo
+	security/openssl=echo "DEFAULT_VERSIONS+=ssl=openssl" >> /etc/make.conf
+'
+
+# Whitespace-delimited list of regexes
 SKIP_INSTALL='
 	README
 	LICENSE
@@ -102,11 +186,8 @@ install_if_not_exists() {
 			else
 				make -C "${PORTSDIR}/${PORT}" install clean || :
 			fi
-			if pkg info "${PORT}" >/dev/null 2>&1; then
-				break
-			fi
 		else 
-			echo "${PORT} is already installed"
+			break
 		fi
 	done
 	pkg info "${PORT}" >/dev/null 2>&1
