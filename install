@@ -29,6 +29,7 @@ PORTS='
 	x11/libinput
 	x11-toolkits/qt5-gui
 	emulators/virtualbox-ose
+	devel/dconf
 	www/chromium
 '
 
