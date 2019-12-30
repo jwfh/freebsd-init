@@ -45,6 +45,16 @@ DISABLE_VULNERABILITIES='
 	www/chromium
 '
 
+SKIP_INSTALL='
+	README
+	LICENSE
+	install
+	users\.conf
+	var/db/ports/.*
+	boot/loader\.conf
+	usr/local/etc/X11/xorg\.conf\.d/driver-nvidia\.conf
+'
+
 bootstrap_portsnap() {
 	echo "Fetching portsnap"
 	portsnap fetch --interactive
@@ -68,12 +78,12 @@ install_port_options() {
 install_if_not_exists() {
 	echo "Building $1"
 	PORT=$1
-	for CONFLICT in ${CONFLICTS}
+	for CONFLICT in "${CONFLICTS}"
 	do
-		for CONFLICT_PORT in $(echo ${CONFLICT} | awk -vFS=",|\=" -vOFS=" " "/^[:space:]*$(echo ${PORT} | sed -e 's#/#\\/#g')/ { \$1=\"\"; print }")
+		for CONFLICT_PORT in $(echo "${CONFLICT}" | awk -vFS=",|\=" -vOFS=" " "/^[:space:]*$(echo "${PORT}" | sed -e 's#/#\\/#g')/ { \$1=\"\"; print }")
 		do
-			if ! pkg info ${CONFLICT_PORT} >/dev/null 2>&1; then
-				make -C ${PORTSDIR}/${CONFLICT_PORT} deinstall || :
+			if ! pkg info "${CONFLICT_PORT}" >/dev/null 2>&1; then
+				make -C "${PORTSDIR}/${CONFLICT_PORT}" deinstall || :
 			fi
 		done
 	done
@@ -81,23 +91,53 @@ install_if_not_exists() {
 	for try in $(seq ${RETRIES})
 	do 
 		if ! pkg info $1 >/dev/null 2>&1; then
-			if echo ${DISABLE_VULNERABILITIES} | grep -q -E -e "[:space:]+${PORT}[:space:]+"; then
-				make -C ${PORTSDIR}/${PORT} DISABLE_VULNERABILITIES=yes install clean || :
+			if echo "${DISABLE_VULNERABILITIES}" | grep -q -E -e "[:space:]+${PORT}[:space:]+"; then
+				make -C "${PORTSDIR}/${PORT}" DISABLE_VULNERABILITIES=yes install clean || :
 			else
-				make -C ${PORTSDIR}/${PORT} install clean || :
+				make -C "${PORTSDIR}/${PORT}" install clean || :
 			fi
-			(pkg info ${PORT} >/dev/null 2>&1 && break) || :
+			(pkg info "${PORT}" >/dev/null 2>&1 && break) || :
 		else 
 			echo "${PORT} is already installed"
 		fi
 	done
-	pkg info ${PORT} >/dev/null 2>&1 
+	pkg info "${PORT}" >/dev/null 2>&1
 }
 
 install_ports() {
-	for PORT in ${PORTS}
+	for PORT in "${PORTS}"
 	do
-		install_if_not_exists ${PORT}
+		install_if_not_exists "${PORT}"
+	done
+}
+
+nvidia_support() {
+	if pciconf -lv | grep -q -i -e 'nvidia'; then
+		install -m 644 usr/local/etc/X11/xorg.conf.d/driver-nvidia.conf /usr/local/etc/X11/xorg.conf.d/driver-nvidia.conf
+		sysrc kld_list="nvidia-modeset"
+		echo 'nvidia_load="YES"' >> /boot/loader.conf
+	fi
+}
+
+zfs_support() {
+	if zpool list | grep -v -q -e 'no pools available'; then
+		if mount -p 2>/dev/null | awk '{ if ($2 == "/" && $3 == "zfs" && $0 !~ /iocage/) { exit } else { exit 1 } }'; then 
+			sysrc zfs_enable="YES"
+			echo 'zfs_load="YES"' >> /boot/loader.conf
+		fi
+	fi
+}
+
+install_boot_loader_conf() {
+	if df / | tail -n+2 | awk '{ if ($0 !~ /iocage/) { exit } else { exit 1 } }'; then
+		install -m 644 boot/loader.conf /boot/loader.conf
+	fi
+}
+
+install_config_files() {
+	for conf_file in $(find -E . -type f \( \! \( -regex '\./\.git\/.*' -o -regex "./$(echo "${SKIP_INSTALL}" | awk 'BEGIN { first=1 } /^[^[:space:]]+$/ { if (first==1) { printf "(%s", $0; first=0 } else { printf "|%s", $0 } } END { printf ")" }')" \) \) -exec [ -e "{}" ] \; -print | sed -e 's#\./##')
+	do
+		install -m 644 "${conf_file}" "/${conf_file}"
 	done
 }
 
@@ -106,6 +146,9 @@ main() {
 	fetch_repo
 	install_port_options
 	install_ports
+	install_boot_loader_conf
+	nvidia_support
+	zfs_support
 }
 
 main
