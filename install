@@ -90,13 +90,15 @@ install_if_not_exists() {
 
 	for try in $(seq ${RETRIES})
 	do 
-		if ! pkg info $1 >/dev/null 2>&1; then
+		if ! pkg info "${PORT}" >/dev/null 2>&1; then
 			if echo "${DISABLE_VULNERABILITIES}" | grep -q -E -e "[:space:]+${PORT}[:space:]+"; then
 				make -C "${PORTSDIR}/${PORT}" DISABLE_VULNERABILITIES=yes install clean || :
 			else
 				make -C "${PORTSDIR}/${PORT}" install clean || :
 			fi
-			(pkg info "${PORT}" >/dev/null 2>&1 && break) || :
+			if pkg info "${PORT}" >/dev/null 2>&1; then
+				break
+			fi
 		else 
 			echo "${PORT} is already installed"
 		fi
@@ -115,7 +117,9 @@ nvidia_support() {
 	if pciconf -lv | grep -q -i -e 'nvidia'; then
 		install -m 644 usr/local/etc/X11/xorg.conf.d/driver-nvidia.conf /usr/local/etc/X11/xorg.conf.d/driver-nvidia.conf
 		sysrc kld_list="nvidia-modeset"
-		echo 'nvidia_load="YES"' >> /boot/loader.conf
+		if [ -e /boot/loader.conf ]; then
+			echo 'nvidia_load="YES"' >> /boot/loader.conf
+		fi
 	fi
 }
 
@@ -123,7 +127,9 @@ zfs_support() {
 	if zpool list | grep -v -q -e 'no pools available'; then
 		if mount -p 2>/dev/null | awk '{ if ($2 == "/" && $3 == "zfs" && $0 !~ /iocage/) { exit } else { exit 1 } }'; then 
 			sysrc zfs_enable="YES"
-			echo 'zfs_load="YES"' >> /boot/loader.conf
+			if [ -e /boot/loader.conf ]; then
+				echo 'zfs_load="YES"' >> /boot/loader.conf
+			fi
 		fi
 	fi
 }
