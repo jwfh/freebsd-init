@@ -51,6 +51,8 @@ GLOBAL_MAKE_OPTIONS='MASTER_SITE_GNOME=http://mirror.csclub.uwaterloo.ca/gnome/%
 PORTS='	
 	devel/gmake 
 	devel/llvm80 
+	devel/llvm90
+	lang/rust
 	devel/meson
 	devel/p5-subversion 
 	devel/git 
